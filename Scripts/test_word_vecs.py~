@@ -1,0 +1,185 @@
+import sys, os
+from scipy.spatial.distance import cosine
+import numpy as np
+import codecs
+from gensim.models import Word2Vec
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout
+
+def averageWordVecs(sentence,model):
+    """Returns a vector which is the
+    averate of all of the vectors in
+    the sentence"""
+    sent = np.array(np.zeros((model.vector_size)))
+    sent_length = len(sentence)
+    for w in sentence.split():
+        try:
+            sent += model[w]
+        except KeyError:
+            sent_length -= 1
+            pass
+    return sent/sent_length
+
+
+def getMyData(fname, label, model, representation=averageWordVecs):
+    data= []
+    for sent in codecs.open(fname, 'r', encoding='utf8', errors='replace'):
+        data.append((representation(sent,model), label))
+    return data
+
+class Sentence_Polarity_Dataset(object):
+    """This class takes as input the directory that holds the dataset and
+    the word vector model that is used to transform this data. Parameters are as
+    follows:
+
+    one_hot: the y labels are one hot vectors where the correct class is 1 and
+             all others are 0. Default is True.
+
+    dtype: the dtype of the np.array for each word vector. Default is np.float32.
+
+    rep: this determines how the word vectors are represented. The following are options:
+
+         sentence2vec: each sentence is represented by one vector, which is simply
+                       the sum of each of the word vectors in the sentence.
+
+         averageWordVecs: each sentence is represented as the average of all of the
+                          word vectors in the sentence.
+
+         getWordVecs: each sentence is a list of the word vectors in the sentence. This
+                      approach does not add or average them, but padding must be used
+                      during training.
+    """
+
+    def __init__(self, DIR, model, one_hot=True,
+                 dtype=np.float32, rep=averageWordVecs):
+
+
+        dataneg = getMyData(os.path.join(DIR, 'neg.txt'), 1, model, representation=rep)
+        datapos = getMyData(os.path.join(DIR, 'pos.txt'), 2, model, representation=rep)
+        traindata = dataneg[:int((len(dataneg) * .75))] + datapos[:int((len(datapos) * .75))]
+        devdata = dataneg[int((len(dataneg) * .75)):int((len(dataneg) * .85))] + datapos[int((len(datapos) * .75)):int((len(dataneg) * .85))]
+        testdata = dataneg[int((len(dataneg) * .85)):]+ datapos[int((len(datapos) * .85)):]
+        Xtrain = [data for data, y in traindata]
+        if one_hot == True:
+            ytrain = [self.to_array(y,2) for data,y in traindata]
+        else:
+            ytrain = [y for data, y in traindata]
+        Xtrain = np.array(Xtrain)
+        ytrain = np.array(ytrain)
+
+        Xdev = [data for data, y in devdata]
+        if one_hot == True:
+            ydev = [self.to_array(y,2) for data,y in devdata]
+        else:
+            ydev = [y for data, y in devdata]
+        Xdev = np.array(Xdev)
+        ydev = np.array(ydev)
+
+        Xtest = [data for data, y in testdata]
+        if one_hot == True:
+            ytest = [self.to_array(y, 2) for data,y in testdata]
+        else:
+            ytest = [y for data,y in testdata]
+
+        Xtest = np.array(Xtest)
+        ytest = np.array(ytest)
+
+        self._Xtrain = Xtrain
+        self._ytrain = ytrain
+        self._Xdev = Xdev
+        self._ydev = ydev
+        self._Xtest = Xtest
+        self._ytest = ytest
+        self._num_examples = len(self._Xtrain)
+        self._epochs_completed = 0
+        self._index_in_epoch = 0
+
+    def to_array(self, integer, num_labels):
+        """quick trick to convert an integer to a one hot vector that
+        corresponds to the y labels"""
+        integer = integer -1
+        return np.array(np.eye(num_labels)[integer])
+
+
+
+def create_classifier():
+    clf = Sequential()
+    clf.add(Dense(input_dim=300, output_dim=800, activation='relu'))
+    clf.add(Dropout(.3))
+    clf.add(Dense(input_dim=800, output_dim=800, activation='relu'))
+    clf.add(Dropout(.3))
+    clf.add(Dense(input_dim=800, output_dim=800, activation='relu'))
+    clf.add(Dropout(.3))
+    clf.add(Dense(input_dim=800, output_dim=2, activation='softmax'))
+    clf.compile('adam', 'binary_crossentropy', metrics=['accuracy'])
+    return clf
+
+
+def test_dataset(dataset, classifier):
+    history = classifier.fit(dataset._Xtrain, dataset._ytrain, validation_data=[dataset._Xdev, dataset._ydev],
+                      nb_epoch=10, verbose=1, batch_size=32)
+    results = classifier.evaluate(dataset._Xtest, dataset._ytest, verbose=1, batch_size=32)
+    return history, results
+
+def test_all(lang_models):
+
+    os.chdir('/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/')
+
+    results = []
+    histories = []
+    
+    for lmd in lang_models:
+        print('Training classifier on %s' % lmd)
+        print()
+        lang_model = Word2Vec.load('LanguageModels/'+lmd+'/model1')
+        dataset = Sentence_Polarity_Dataset('/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/sentence_polarity_dataset/', lang_model)
+        classifier = create_classifier()
+        history, result = test_dataset(dataset, classifier)
+        histories.append(history)
+        results.append(result)
+        print()
+        print('-'*80)
+        print()
+
+    maxes = np.max(results, axis=1)
+    for i, lm in enumerate(lang_models):
+        print(lm + ': ' + str(maxes[i]))
+
+    return results, histories
+
+def test_all2(lang_models):
+
+    os.chdir('/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/')
+
+    results = []
+    histories = []
+    
+    for lmd in lang_models:
+        print('Training classifier on %s' % lmd)
+        print()
+        lang_model = Word2Vec.load('LanguageModels/'+lmd+'/small_model')
+        dataset = Sentence_Polarity_Dataset('/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/sentence_polarity_dataset/', lang_model)
+        classifier = create_classifier()
+        history, result = test_dataset(dataset, classifier)
+        histories.append(history)
+        results.append(result)
+        print()
+        print('-'*80)
+        print()
+
+    maxes = np.max(results, axis=1)
+    for i, lm in enumerate(lang_models):
+        print(lm + ': ' + str(maxes[i]))
+
+    return results, histories
+
+if __name__ == '__main__':
+
+    #lang_models = ['europarl', 'multiun', 'opener', 'open_subtitles',\
+    #               'sentence_polarity', 'wikipedia']
+    #test_all(lang_models)
+
+    lang_models2 = ['europarl','multiun', 'wikipedia']
+
+    test_all2(lang_models2)
+    

@@ -1,0 +1,136 @@
+import logging
+import sys
+import os
+import re
+from gensim.models import Word2Vec
+from keras.models import Sequential
+from keras.layers.core import Dense
+from nltk import word_tokenize
+
+class MySentences(object):
+    """For a corpus that has a number of subfolders, each
+    containing a set of text files. Supposes that in each text file,
+    there is one sentence per line. Yields one tokenized sentence
+    at a time."""
+    
+    def __init__(self, dirname, num_sents=10e+10, encoding='utf8'):
+        self.dirname = dirname
+        self.num_sents = num_sents
+        self.encoding = encoding 
+        
+    def __iter__(self):
+        lines = 0
+        for fname in os.listdir(self.dirname):
+            text_file = os.path.join(self.dirname, fname)
+            for line in open(text_file, encoding=self.encoding):
+                if lines < self.num_sents:
+                    line = re.sub('<.*?>', '', line)
+                    lines += 1
+                    yield word_tokenize(line.lower(), language='english')
+                else:
+                    break
+
+class MySentences2(object):
+    """Takes a list of directory names of corpora as input. Supposes that the corpus is
+    arranged either directly as .txt files or as subdirectories containing text files.
+    The corpora should contain one sentence per line. Yields one tokenized sentence at
+    a time."""
+    
+    def __init__(self, dirnames, num_sents=10e+1000, num_words=10e+1000, encoding='utf8'):
+        self.dirnames = dirnames
+        self.num_sents = num_sents
+        self.num_words = num_words
+        self.encoding = encoding 
+        
+    def __iter__(self):
+        lines = 0
+        words = 0
+        for dirname in self.dirnames:
+            for fname in os.listdir(dirname):
+                if os.path.isdir(dirname+fname):
+                    sub_dir = os.path.join(dirname, fname)
+                    for fname in os.listdir(sub_dir):
+                        text_file = os.path.join(sub_dir, fname)
+                        for line in open(text_file, encoding=self.encoding):
+                            if lines < self.num_sents and words < self.num_words:
+                                line = re.sub('<.*?>', '', line)
+                                lines += 1
+                                tokens = word_tokenize(line.lower(), language='english')
+                                words += len(tokens)
+                                yield tokens
+                            else:
+                                break
+                else:
+                    text_file = os.path.join(dirname, fname)
+                    for line in open(text_file, encoding=self.encoding):
+                        if lines < self.num_sents and words < self.num_words:
+                            line = re.sub('<.*?>', '', line)
+                            lines += 1
+                            tokens = word_tokenize(line.lower(), language='english')
+                            words += len(tokens)
+                            yield tokens
+                        else:
+                            break
+
+
+class MySentences3(object):
+    """Takes a list of directory names of corpora as input. Supposes that the corpus is
+    arranged either directly as .txt files or as subdirectories containing text files.
+    The corpora should contain one sentence per line. Yields one tokenized sentence at
+    a time. You can take a certain amount of sentences or words from each corpus used in training
+    the gensim model."""
+    
+    def __init__(self, dirnames, num_sents=10e+1000, num_words=10e+1000, encoding='utf8'):
+        self.dirnames = dirnames
+        self.num_sents = num_sents
+        self.num_words = num_words
+        self.encoding = encoding 
+        
+    def __iter__(self):
+        for dirname in self.dirnames:
+            lines = 0
+            words = 0
+            for fname in os.listdir(dirname):
+                if os.path.isdir(dirname+fname):
+                    sub_dir = os.path.join(dirname, fname)
+                    for fname in os.listdir(sub_dir):
+                        text_file = os.path.join(sub_dir, fname)
+                        for line in open(text_file, encoding=self.encoding):
+                            if lines < self.num_sents and words < self.num_words:
+                                line = re.sub('<.*?>', '', line)
+                                lines += 1
+                                tokens = word_tokenize(line.lower(), language='english')
+                                words += len(tokens)
+                                yield tokens
+                            else:
+                                break
+                else:
+                    text_file = os.path.join(dirname, fname)
+                    for line in open(text_file, encoding=self.encoding):
+                        if lines < self.num_sents and words < self.num_words:
+                            line = re.sub('<.*?>', '', line)
+                            lines += 1
+                            tokens = word_tokenize(line.lower(), language='english')
+                            words += len(tokens)
+                            yield tokens
+                        else:
+                            break
+
+                    
+if __name__ == '__main__':
+
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+    corpus_names = ['multiun/high_recall/','multiun/high_precision/',
+                    'europarl/high_recall/', 'europarl/high_precision/']
+    #dirnames = ['/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/opinionfinderv2.0/database/docs/europarl/',
+    #            '/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/opinionfinderv2.0/database/docs/wikipedia/']
+    for corpus_name in corpus_names:
+        corpus_dir_list = ['../opinionfinderv2.0/database/docs/extracted_subjectivity_corpora/'+corpus_name,
+                           '/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/opinionfinderv2.0/database/docs/wikipedia/']
+        out_dir = '/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/LanguageModels/extracted_subjectivity_corpora/'+corpus_name + 'model1'
+	model = Word2Vec(sents, size=300, window=10, workers=5, negative=5, sg=1)
+    
+    sents = MySentences3(['/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/opinionfinderv2.0/database/docs/extracted_subjectivity_corpora/wikipedia/high_precision/'], num_words=10e+7)
+    model = Word2Vec(sents, size=300, window=10, workers=5, negative=5, sg=1)
+    out_dir = '/home/jbarnes/Documents/Experiments/Subjectivity_Quantified/LanguageModels/extracted_subjectivity_corpora/wikipedia/high_precision/model1'
+    model.save(out_dir)    
