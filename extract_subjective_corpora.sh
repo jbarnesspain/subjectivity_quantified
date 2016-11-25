@@ -20,12 +20,11 @@ function run_opinionfinder {
 # MAIN
 #################################################################
 
-corpora="europarl multiun opener sentence_polarity wikipedia"
+corpora="europarl multiun opener sentence_polarity"
 
 #create doclists for corpora
-for corpus in $copora
-do
-    get_doclist $i
+for corpus in $corpora; do
+    get_doclist $corpus
 done
 
 #create directory for results

@@ -29,7 +29,8 @@ cd ../../..
 
 #get rt-polaritydata
 mkdir rt-polaritydata
-https://www.cs.cornell.edu/people/pabo/movie%2Dreview%2Ddata/rt-polaritydata.tar.gz 
+cd rt-polaritydata
+wget https://www.cs.cornell.edu/people/pabo/movie%2Dreview%2Ddata/rt-polaritydata.tar.gz 
 tar -xvfz rt-polaritydata.tar.gz
 rm rt-polaritydata.tar.gz
 cd ..
